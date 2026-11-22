@@ -1,0 +1,49 @@
+Salon SaaS — Recommended Implementation Stack (Nov 2026)
+
+Backend
+- Laravel 13 on PHP 8.3+
+- Laravel Sanctum bearer auth
+- Spatie Laravel Permission (team/shop-scoped permissions)
+- MySQL 8
+- Redis for cache, sessions, and queues
+- Laravel Queues + Horizon + Supervisor
+- Laravel Reverb for real-time dashboard/events
+
+Frontend
+- Vue 3 + TypeScript
+- Vite
+- Vuetify 3
+- Pinia
+- Vue Router
+- vite-plugin-pwa
+- Responsive PWA first; Capacitor Android wrapper later if needed
+
+Billing and documents
+- Decimal/paise-safe monetary fields
+- Razorpay subscriptions
+- Barryvdh Laravel DomPDF
+- 58/80 mm HTML/CSS thermal templates
+- Maatwebsite Excel exports
+
+Integrations
+- WhatsApp: Meta WhatsApp Cloud API or BSP
+- SMS: MSG91 / Textlocal / Fast2SMS
+- SMS/WhatsApp delivery, PDF, reports, and heavy jobs run asynchronously
+
+Infrastructure
+- VPS or AWS Lightsail/EC2
+- AWS RDS/MySQL or managed MySQL
+- Laravel Forge or Ploi
+- HTTPS only
+- Daily MySQL backup, 30-day retention
+- 99.5% pilot availability target
+
+MVP constraints
+- One shared MySQL database with tenant_id isolation
+- Vue PWA, not a native app initially
+- Offline bill sync deferred to Phase 2
+- Appointments, inventory, loyalty/membership, customer app, full payroll, and email campaigns deferred
+
+Primary source
+- Salon Management SaaS – Feature Specification.pdf
+- Stack choices supersede older references in the feature specification where they conflict; verify Laravel 13 package compatibility before implementation.

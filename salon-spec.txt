@@ -1,0 +1,493 @@
+
+===== PAGE 1 =====
+Salon Management SaaS – Feature 
+Specification
+Nov 17, 2026  ·  @Vinay Kumar Singh
+1. Overview
+This is a multi-tenant SaaS web app (with a mobile-friendly PWA). Many salon owners
+each sign up, run one or more shops, and handle billing, staff commission, customers,
+promotions and earnings in one place.
+Goals
+Bill a customer in under 30 seconds at the counter.
+Calculate each worker's services, revenue and commission automatically, with no
+spreadsheets.
+Build a customer database with contact details and visit history, and use it for
+WhatsApp/SMS promotions.
+Give owners a daily, monthly and per-shop view of sales, expenses and net earnings.
+Target users: small and mid-size salons, barber shops, unisex parlours and spas with 1–20
+shops per owner, starting in India (INR, GST, WhatsApp-first).
+In scope (MVP): shops, staff, services, billing, commission, customers, promotions,
+reports.
+Later phases: online appointment booking, inventory, memberships and packages, a
+customer app, and payroll.
+2. User roles and permissions
+There are five roles, and access is scoped by tenant (owner account) and then by shop.
+Implement this with spatie/laravel-permission using team = shop.
+Role Who Key access
+Super Admin Platform team Manage tenants and plans, see usage, give
+support, set global SMS/WhatsApp settings
+Salon Management SaaS – Feature Speciﬁcation
+Page 1 of 16
+===== PAGE 2 =====
+Permission rules
+Deleting or editing a bill after it is saved needs the Manager role or above, plus a
+reason, and it is written to the audit log.
+The owner can switch between shops or see a combined "All shops" view.
+Each permission is a toggle, so the owner can customise roles (e.g. allow a cashier to
+give a discount up to 10%).
+3. Module 1 — Tenant and multi-shop management
+An owner signs up once, then adds as many shops as their plan allows and switches
+between them from a header dropdown.
+Features
+1. Sign-up and onboarding: mobile number + OTP or email + password, then business
+name, then an onboarding wizard. The wizard covers the first shop, services from a
+default template, the first staff members and the bill format.
+2. Shop CRUD: name, address, GSTIN (optional), phone, logo, opening hours, weekly off,
+invoice prefix (e.g. HYD1- ), currency and time zone.
+3. Shop switcher: a global selector stored in the session or Vuex; every API call sends X-
+Shop-Id . An "All shops" option is for owners only, in reports.
+4. Subscription plans: Free / Basic / Pro, limited by number of shops, staff and monthly
+message credits. Use Razorpay subscriptions, with a trial period (e.g. 14 days).
+Role Who Key access
+Shop Owner Salon owner Everything across all their shops: settings, staff,
+pricing, reports, campaigns, payouts
+Manager Shop
+manager
+One or more assigned shops: billing, customers,
+staff attendance, daily reports; no payouts or plan
+settings
+Cashier /
+Receptionist
+Front desk Create bills, add customers, view today's sales;
+cannot delete bills or see commission rates
+Staff (Barber /
+Stylist)
+Worker Own login (optional): see own services done, own
+commission and earnings only
+Salon Management SaaS – Feature Speciﬁcation
+Page 2 of 16
+===== PAGE 3 =====
+5. Shop settings: tax (GST % inclusive or exclusive), rounding, the default commission
+rule, bill footer text, the WhatsApp sender, and the low-credit alert level.
+6. Message credits wallet: a per-tenant balance for SMS/WhatsApp, with a top-up and
+usage history.
+Acceptance criteria
+4. Module 2 — Service and product catalog
+The catalog is the price list the bill picks from. It is defined once per tenant, and each shop
+can override the price.
+Features
+1. Service categories: Hair, Beard, Facial, Spa, Colour, Bridal and so on, with drag-to-sort
+ordering.
+2. Service: name, category, base price, duration (minutes), gender (male / female /
+unisex), GST %, active flag and an optional per-service commission override.
+3. Shop-level price override: the same service can cost ₹ 150 in one shop and ₹ 200 in
+another.
+4. Retail products (optional in MVP): name, SKU, MRP, selling price, stock quantity, and
+commission on sale. Stock is reduced when a product is billed.
+5. Combo / package: a bundle of services at a fixed price (e.g. Haircut + Beard + Head
+massage = ₹ 349).
+6. Default templates: a ready list of 40–50 common salon services to load during
+onboarding.
+7. Bulk import/export with CSV.
+5. Module 3 — Staff, work tracking and commission
+Every bill line is tagged to the worker who did it. That one link is what drives the count of
+cuts, revenue per worker, and commission.
+A user from tenant A can never read or write tenant B data (covered by automated
+tests).
+Invoice numbers are sequential per shop and per financial year, with no gaps on
+concurrent billing.
+Shop limits from the plan are enforced at the API, not only in the UI.
+Salon Management SaaS – Feature Speciﬁcation
+Page 3 of 16
+===== PAGE 4 =====
+Staff profile
+Name, mobile, photo, role (Barber, Stylist, Beautician, Helper), assigned shop(s),
+joining date, ID proof (upload), and bank/UPI details for payouts.
+Salary type: Fixed, Commission only, or Fixed + Commission.
+Status: active or inactive. An inactive worker keeps their history but cannot be
+selected on new bills.
+Attendance (MVP-lite)
+Check-in / check-out by the manager or by the staff member from their own login,
+plus a leave marker.
+A monthly attendance sheet per worker.
+Work tracking (auto from bills)
+Services done per worker by day, week and month (e.g. Ravi: 14 haircuts, 6 beards
+today).
+Revenue generated, average bill value and the customers served.
+When two workers do one service (e.g. a bridal job), split it by percentage on that bill
+line.
+Commission rules engine
+Rules are checked in this order, and the first match wins: per staff + service → per service
+→ per staff → shop default.
+Rule type Example Notes
+Flat % of service
+amount
+40% of every service Most common
+Fixed amount per
+service
+₹ 30 per haircut Good for barbers
+Tiered / target slab 30% up to ₹ 20,000/month,
+40% above
+Recalculated at month end
+Product sale
+commission
+10% of retail sale Separate from service commission
+Tips 100% to staff Recorded on the bill, not counted as
+shop revenue
+Salon Management SaaS – Feature Speciﬁcation
+Page 4 of 16
+===== PAGE 5 =====
+Settings choose whether commission is calculated before or after discount and
+before or after GST. The default is after discount and before GST.
+The rule and rate are saved on each bill line at billing time, so changing a rule later
+never rewrites old earnings.
+Payouts
+A payout statement for any period: services done, gross revenue, commission, tips,
+advances taken, deductions, fixed salary, and net payable.
+Record advances and deductions (e.g. ₹ 2,000 advance on the 10th).
+Mark a period as paid (cash / UPI / bank), which locks that period.
+Export the statement as a PDF and share it on WhatsApp.
+Staff self-view: a mobile screen showing today's count, this month's earnings, and
+pending payout.
+6. Module 4 — Billing / POS
+The billing screen is the most-used screen, so it must work on a tablet, take few taps, and
+survive a weak internet connection.
+Billing flow
+1. Search for the customer by mobile number. If none is found, quick-add them with
+name + mobile and nothing else.
+2. Add services or products from category tiles or by search; each line defaults to the
+shop price.
+3. Assign a worker to each line (a staff chip picker). The last-used worker is
+remembered.
+4. Apply a discount: per line or on the whole bill, as % or ₹ , or with a coupon code, within
+the role's discount limit.
+5. Tax is calculated automatically (GST inclusive or exclusive; CGST/SGST split shown
+when a GSTIN is set).
+6. Take payment: Cash, UPI, Card, Wallet/credit, or a split payment (e.g. ₹ 300 cash +
+₹ 200 UPI).
+7. Save, then print (58/80 mm thermal or A4) or send the invoice as a WhatsApp/SMS
+link.
+Other features
+Salon Management SaaS – Feature Speciﬁcation
+Page 5 of 16
+===== PAGE 6 =====
+Hold bill / drafts: keep several open tickets while customers are in the chair.
+Tips field per worker.
+Due / credit bills: part payment, with the balance tracked on the customer and a
+"collect due" action.
+Refund / cancel: full or partial with a reason. Commission is reversed automatically;
+manager PIN required.
+Bill history: filter by date, shop, worker, payment mode and status; reprint and resend.
+Day close (cash register): opening cash, expected vs counted cash, the difference,
+and a closing report.
+Expenses entry: rent, electricity, products bought, tea/snacks, and so on, by category
+(used in the profit report).
+Offline mode (phase 2): queue bills in IndexedDB and sync when back online.
+Acceptance criteria
+7. Module 5 — Customer management (CRM)
+Customers belong to the tenant, so a customer who visits any of the owner's shops has
+one profile and one history.
+Customer profile
+Name, mobile (unique per tenant), alternate number, email, gender, date of birth,
+anniversary, address/area, notes (e.g. allergic to ammonia colour) and preferred
+stylist.
+Tags: VIP, Regular, Bridal, Student, or custom tags.
+Source: walk-in, Instagram, referral or Google.
+Marketing consent flags for SMS, WhatsApp and email, with the date captured, plus
+opt-out handling.
+Auto-computed fields
+First visit, last visit, total visits, total spent, average bill, favourite service, and due
+balance.
+A 3-service bill with a known customer can be completed in 30 seconds or less.
+Bill totals = sum(lines) − discount + tax, rounded per setting, with no float errors
+(store paise as integers or use DECIMAL(12,2)).
+A saved bill is immutable; edits create a revision and an audit-log entry.
+Salon Management SaaS – Feature Speciﬁcation
+Page 6 of 16
+===== PAGE 7 =====
+Segment: New (1 visit), Regular (3+ visits in 90 days), At risk (no visit in 45+ days),
+Lost (90+ days). The day thresholds are configurable.
+Features
+1. A customer list with search (name/mobile) and filters (tag, segment, last visit, spend,
+birthday month, shop) — the same filters are reused for campaigns.
+2. Customer detail: visit timeline with each bill, services and worker, payments and dues,
+and messages sent.
+3. Import from Excel/CSV with duplicate merge by mobile; export to CSV (owner only).
+4. Loyalty points (phase 2): earn X points per ₹ 100 and redeem on a bill.
+5. Wallet / prepaid membership (phase 2): e.g. pay ₹ 5,000 and get services worth
+₹ 6,000.
+6. Feedback: after a bill, send a rating link (1–5 stars); low ratings alert the manager.
+8. Module 6 — Promotional messaging
+Owners pick a customer segment, pick an approved template, and send now or on a
+schedule. Each message uses credits from the tenant wallet.
+Channels
+Features
+1. Template library: templates with variables {{name}} , {{shop}} , {{offer}} ,
+{{expiry}} , a preview, and the approval status synced from the provider.
+2. Campaign builder: audience (filters from Module 5, live count) → template → channel
+→ schedule → credit cost estimate → confirm.
+Channel Provider options Compliance
+WhatsApp Meta WhatsApp Cloud API, or a BSP
+such as Gupshup, Interakt or
+AiSensy
+Marketing templates must be pre-
+approved by Meta; opt-in required
+SMS MSG91, Textlocal, Fast2SMS India DLT: registered entity, header
+(sender ID) and template ID per
+message
+Email (phase
+2)
+Amazon SES, Mailgun Unsubscribe link
+Salon Management SaaS – Feature Speciﬁcation
+Page 7 of 16
+===== PAGE 8 =====
+3. Only customers who consented are targeted; opted-out numbers are always
+excluded.
+4. Automated triggers:
+Thank-you + invoice after a bill
+Birthday / anniversary wish with an offer (sent at 9 AM)
+"We miss you" after N days with no visit
+Due payment reminder
+Feedback request 2 hours after a visit
+5. Campaign report: sent, delivered, read (WhatsApp), failed, and replies, plus
+attributed revenue (bills from targeted customers within 7 days).
+6. Coupons: create codes tied to a campaign (e.g. DIWALI20 ), with usage limits and
+expiry, redeemable on the bill.
+7. Sending through a queue: Laravel queue jobs, throttled to provider rate limits, with
+retries and delivery webhooks.
+9. Module 7 — Dashboard and reports
+The owner's home screen answers "how much did I make today, and who made it?" for one
+shop or all shops together.
+Dashboard widgets (filters: date range, shop or all shops)
+KPI tiles: Today's sales, Bills count, Avg bill value, New customers, Cash in hand,
+Commission payable.
+A sales trend line (daily for the month), with this period compared to the last.
+Top services, top staff by revenue, and a payment mode split.
+Shop comparison (owner, all shops): sales, bills and earnings per shop.
+Alerts: low message credits, dues pending, a staff member absent today.
+Reports (each one filterable, and exportable to Excel/PDF)
+Report What it shows
+Sales summary Gross sales, discounts, tax, net sales, by
+day/week/month/shop
+Earnings / P&L Net sales − staff commission − salaries − expenses
+= net profit
+Salon Management SaaS – Feature Speciﬁcation
+Page 8 of 16
+===== PAGE 9 =====
+Implementation note: use a nightly daily_shop_summary  and daily_staff_summary
+aggregate table (plus live data for today) so reports stay fast as bills grow.
+10. Module 8 — Appointments and booking (phase 2)
+Appointments are phase 2 because walk-ins drive most small-salon revenue. The data
+model should still allow for them from day one ( appointment_id  nullable on bills).
+A calendar view per staff member (day/week) with drag-and-drop; slot length comes
+from the service duration.
+A public booking page per shop ( /book/shop-slug ): pick service → stylist (optional)
+→ slot → OTP-verified mobile.
+Booking confirmation and a reminder on WhatsApp 2 hours before; cancel or
+reschedule by link.
+A walk-in queue / token display for busy barber shops.
+Convert an appointment into a bill in one click, with the services and worker pre-filled.
+No-show tracking on the customer profile.
+Report What it shows
+Staff performance Per worker: services count by type, revenue,
+commission, tips, attendance
+Commission / payout Payable, paid and pending per worker per period
+Service-wise Count and revenue per service and category
+Payment mode Cash / UPI / card / due collected, plus the day-close
+difference
+Customer New vs returning, top spenders, segments, lost
+customers
+Discounts and coupons Discount given per staff and per coupon
+GST report Taxable value and CGST/SGST per invoice (GSTR-1
+friendly)
+Expenses By category and shop
+Campaign ROI Credits spent vs attributed revenue
+Salon Management SaaS – Feature Speciﬁcation
+Page 9 of 16
+===== PAGE 10 =====
+11. Data model (MySQL)
+Use a single database with a tenant_id  on every business table, enforced by a global
+Eloquent scope. Money is stored as DECIMAL(12,2) , and every table has created_at ,
+updated_at  and deleted_at  (soft deletes).
+Table Key fields
+tenants id, business_name, owner_user_id, plan_id,
+trial_ends_at, message_credits, status
+shops id, tenant_id, name, slug, address, phone, gstin,
+invoice_prefix, tax_mode, settings (JSON)
+users id, tenant_id, name, mobile, email, password,
+is_owner
+shop_user shop_id, user_id, role
+staff id, tenant_id, user_id (nullable), name, mobile,
+designation, salary_type, fixed_salary, bank_upi,
+status
+shop_staff shop_id, staff_id
+service_categories id, tenant_id, name, sort
+services id, tenant_id, category_id, name, price,
+duration_min, gender, tax_rate, is_active
+shop_service_prices shop_id, service_id, price
+products id, tenant_id, name, sku, mrp, price, tax_rate
+shop_product_stock shop_id, product_id, qty
+commission_rules id, tenant_id, shop_id, staff_id, service_id, type
+(percent/fixed/slab), value, slabs (JSON), priority
+customers id, tenant_id, name, mobile, email, gender, dob,
+anniversary, tags (JSON), consent_sms,
+consent_whatsapp, total_visits, total_spent,
+last_visit_at, due_amount
+Salon Management SaaS – Feature Speciﬁcation
+Page 10 of 16
+===== PAGE 11 =====
+Table Key fields
+invoices id, tenant_id, shop_id, invoice_no, customer_id,
+subtotal, discount, tax, round_off, total, paid, due,
+status, created_by, appointment_id
+invoice_items id, invoice_id, item_type (service/product),
+item_id, name, qty, price, discount, tax, amount
+invoice_item_staff invoice_item_id, staff_id, share_percent,
+commission_amount, rule_snapshot (JSON)
+payments id, invoice_id, mode, amount, reference,
+received_at
+tips invoice_id, staff_id, amount
+attendance staff_id, shop_id, date, check_in, check_out, status
+staff_advances staff_id, amount, date, note
+payouts id, staff_id, period_from, period_to,
+gross_commission, salary, tips, deductions, net,
+paid_at, mode
+expenses id, shop_id, category, amount, date, note
+cash_registers shop_id, date, opening, expected, counted,
+closed_by
+message_templates id, tenant_id, channel, name, body,
+provider_template_id, dlt_template_id, status
+campaigns id, tenant_id, name, channel, template_id, filters
+(JSON), scheduled_at, status, stats (JSON)
+campaign_messages campaign_id, customer_id, status,
+provider_msg_id, sent_at, delivered_at, read_at
+automations tenant_id, trigger, template_id, delay, is_active
+coupons tenant_id, code, type, value, usage_limit, used,
+expires_at
+credit_transactions tenant_id, type (topup/debit), credits, reference
+audit_logs tenant_id, user_id, action, auditable_type,
+auditable_id, old (JSON), new (JSON), ip
+Salon Management SaaS – Feature Speciﬁcation
+Page 11 of 16
+===== PAGE 12 =====
+Indexes: (tenant_id, mobile)  unique on customers; (shop_id, invoice_no)  unique;
+(shop_id, created_at)  on invoices; (staff_id, created_at)  on invoice_item_staff.
+12. Technical architecture
+The stack is Laravel 11 (API) + Vue 3 SPA with Vuetify 3 + MySQL 8, with Redis queues for
+anything slow (messages, PDFs, report aggregates).
+All clients use one REST API. Message sending and webhooks never block a bill, because
+they run in queue workers.
+Key decisions
+Multi-tenancy: a single database with tenant_id  + a BelongsToTenant  trait and
+global scope (or the stancl/tenancy package in single-DB mode). This is simpler to run
+than one database per tenant.
+System architecture · 3 clients, 1 API, 4 stores/workers, 3 providers
+Salon Management SaaS – Feature Speciﬁcation
+Page 12 of 16
+===== PAGE 13 =====
+Front end: Vue 3 + Vuetify 3, with Pinia (or Vuex 4 if your team prefers) and vue-
+router. Use Vite and make it a PWA with vite-plugin-pwa.
+Auth: Laravel Sanctum with mobile OTP (via the SMS gateway) and spatie/laravel-
+permission.
+Billing numbers: a shop_counters  row locked with SELECT … FOR UPDATE  inside the
+invoice transaction.
+Commission: a CommissionCalculator  service called when a bill is saved, which
+writes invoice_item_staff  with a rule snapshot; monthly slab true-up runs as a
+scheduled job.
+PDF / print: barryvdh/laravel-dompdf for A4; an 80 mm HTML template for thermal
+printers.
+Excel export: maatwebsite/excel.
+Scheduler: birthday and win-back automations, nightly aggregates, due reminders,
+and backups.
+Hosting: a VPS or AWS Lightsail/EC2 + RDS MySQL to start; Laravel Forge or Ploi for
+deploys.
+13. API outline (REST, /api/v1 )
+Auth uses Laravel Sanctum bearer tokens. Shop-scoped routes need the X-Shop-Id
+header, which is checked against the user's shop access by middleware.
+Area Endpoints
+Auth POST /auth/otp/send , POST /auth/otp/verify ,
+POST /auth/login , POST /auth/logout , GET
+/me
+Shops GET/POST /shops , GET/PUT/DELETE /shops/{id} ,
+PUT /shops/{id}/settings
+Users and roles GET/POST /users , PUT /users/{id}/roles
+Catalog CRUD /service-categories , CRUD /services ,
+PUT /shops/{id}/service-prices , CRUD
+/products , POST /services/import
+Salon Management SaaS – Feature Speciﬁcation
+Page 13 of 16
+===== PAGE 14 =====
+14. Non-functional requirements
+Area Endpoints
+Staff CRUD /staff , POST /staff/{id}/attendance ,
+GET /staff/{id}/performance?from&to , CRUD
+/commission-rules
+Payouts GET /payouts/preview?staff_id&from&to , POST
+/payouts , POST /staff/{id}/advances
+Billing POST /invoices , GET /invoices , GET
+/invoices/{id} , POST /invoices/{id}/refund ,
+POST /invoices/{id}/payments , GET
+/invoices/{id}/pdf , POST /invoices/{id}/send
+Drafts CRUD /invoice-drafts
+Cash and expenses POST /cash-register/open , POST /cash-
+register/close , CRUD /expenses
+Customers CRUD /customers , GET /customers/search?q= ,
+GET /customers/{id}/timeline , POST
+/customers/import , GET /customers/export
+Messaging CRUD /templates , POST /campaigns/estimate ,
+CRUD /campaigns , POST /campaigns/{id}/send ,
+CRUD /automations , CRUD /coupons
+Webhooks POST /webhooks/whatsapp , POST /webhooks/sms ,
+POST /webhooks/razorpay
+Reports GET /dashboard , GET /reports/{type}?
+from&to&shop_id , GET /reports/{type}/export
+Billing plans GET /plans , POST /subscription , POST
+/credits/topup
+Area Requirement
+Tenant isolation Global scope on every model, plus policy checks
+and feature tests for cross-tenant access
+Salon Management SaaS – Feature Speciﬁcation
+Page 14 of 16
+===== PAGE 15 =====
+15. Release roadmap
+A team of 2 full-stack developers + 1 part-time designer/QA can ship the MVP in about 12
+weeks. Phase 2 starts only after the MVP runs in real pilot salons.
+Area Requirement
+Security HTTPS only; OTP rate limiting; bcrypt passwords;
+encrypted bank/UPI fields; role checks on every
+endpoint
+Privacy Customer phone numbers are masked for the
+Cashier role in exports; honour opt-out; data
+export and delete on owner request (DPDP Act
+2023)
+Performance Billing API p95 under 300 ms; dashboard under 1.5 s
+for 100k invoices per tenant
+Availability 99.5% uptime target; queue workers supervised
+(Supervisor/Horizon)
+Backup Daily automated MySQL backup, kept 30 days;
+point-in-time recovery if possible
+Audit Every bill edit, refund, discount over the limit, price
+change and payout is logged with user, time and
+old/new values
+Devices Responsive from 360 px phones to tablets and
+desktop; works in Chrome on Android; PWA install
+Printing ESC/POS thermal print via the browser print dialog
+or a small print bridge app
+Localisation English first, Hindi (and other languages) later via
+vue-i18n; INR format ₹ 1,23,456
+Time All timestamps stored in UTC and shown in the
+shop time zone; reports cut off at shop midnight
+Salon Management SaaS – Feature Speciﬁcation
+Page 15 of 16
+===== PAGE 16 =====
+The weeks are rough estimates for planning; break each phase into 2-week sprints in the
+order of the modules above.
+Suggested MVP sprint order
+1. Sprints 1–2: auth, tenancy, shops, roles, service catalog
+2. Sprints 3–4: billing / POS, payments, invoice print and share, customers quick-add
+3. Sprint 5: staff, attendance, commission engine, payouts
+4. Sprint 6: CRM list and filters, WhatsApp/SMS templates and campaigns, dashboard
+and core reports, pilot launch
+Release roadmap · 3 phases, 2 gates
+Salon Management SaaS – Feature Speciﬁcation
+Page 16 of 16
