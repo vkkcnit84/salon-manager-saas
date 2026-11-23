@@ -16,6 +16,7 @@ export const authApi = {
     post<TokenResponse>('/auth/register', { name, email, password }),
   logout: () => post<{ message: string }>('/auth/logout', {}),
   me: () => api<Me>('/me'),
+  updateProfile: (body: { name?: string; mobile?: string | null }) => api<Me>('/me', { method: 'PUT', body: JSON.stringify(body) }),
   createBusiness: (business_name: string) => post('/onboarding/business', { business_name }),
   completeOnboarding: () => post('/onboarding/complete', {}),
 }

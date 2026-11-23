@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -55,6 +56,19 @@ class AuthController extends Controller
         }
 
         return $this->tokenResponse($user);
+    }
+
+    /** Lets a signed-in user set their own name and mobile (needed for WhatsApp summaries). */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:120'],
+            'mobile' => ['sometimes', 'nullable', 'regex:/^[6-9]\d{9}$/', Rule::unique('users', 'mobile')->ignore($user->id)],
+        ], ['mobile.regex' => 'Enter a valid 10-digit Indian mobile number.', 'mobile.unique' => 'This mobile number is already used by another account.']);
+        $user->forceFill($data)->save();
+
+        return response()->json($user->fresh()->load('tenant.plan'));
     }
 
     public function logout(Request $request): JsonResponse

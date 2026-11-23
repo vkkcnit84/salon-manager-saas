@@ -35,6 +35,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/me', fn (Request $request) => $request->user()->load('tenant.plan'));
+        Route::put('/me', [AuthController::class, 'updateProfile']);
         Route::post('/onboarding/business', [ShopController::class, 'business']);
 
         // Platform administration (super admin only)

@@ -1,4 +1,6 @@
 <template>
+  <div>
+  <ProfileCard />
   <div v-if="shop">
     <h1 class="text-h5 mb-4">{{ shop.name }} — settings</h1>
     <v-alert v-if="msg" :type="ok ? 'success' : 'error'" variant="tonal" class="mb-3">{{ msg }}</v-alert>
@@ -25,10 +27,12 @@
     <v-btn color="primary" :loading="busy" @click="save">Save</v-btn>
   </div>
   <p v-else>Select a shop from the header to edit its settings.</p>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref, watchEffect } from 'vue'
+import ProfileCard from './ProfileCard.vue'
 import { shopsApi, type ShopSettings } from './api'
 import { useShopStore } from '../stores/shop'
 import { useShopsStore } from '../stores/shops'
